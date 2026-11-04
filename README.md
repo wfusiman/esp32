@@ -35,6 +35,8 @@ Lógica de control:
 Diagrama de decisión de la lógica de control (tarea de control normal, cada 1 s):
 
 Figura 1. Diagrama de decisión. La tarea de seguridad (cada 500 ms) repite solo la primera decisión (T > 98 °C).
+<img width="892" height="680" alt="diagdesiciones" src="https://github.com/user-attachments/assets/78d9ea51-9729-4f86-b84b-f7ca808264e4" />
+
 
 Tareas a implementar:
 - tarea lectura de temperatura (temperatureReader): toma la temperatura del agua cada 1 segundo leyendo el puerto serie (formato T:XX), sin bloquear, y actualiza la variable compartida bajo mutex (prioridad 3 / periodicidad 1000 ms).
