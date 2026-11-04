@@ -8,7 +8,8 @@ La temperatura del agua en la caldera debe esta entre 70°C y 98°C.
 Si supera los 98°C, la válvula eléctrica de gas debe cerrarse inmediatamente. 
 La caldera debe estar prendida mas de 10 segundos, y descansar el mismo tiempo para volver a encenderse.
 
-<img width="593" height="412" alt="caldera" src="https://github.com/user-attachments/assets/aa95ff47-0de3-48e9-b2ad-3d0f3ef2f1eb" />
+<img width="632" height="413" alt="Captura desde 2026-11-04 12-29-36" src="https://github.com/user-attachments/assets/da5a2fee-ea2e-4a04-9130-d6d2d0b14bc6" />
+
 
 Sensores y actuadores:
 - Sensor de temperatura de agua: toma temperatura del agua.
@@ -41,6 +42,24 @@ Explicación del código:
 - temperatureControlSecurity y temperatureControlNormal: implementan el diagrama de decisión. Si T > 98°C cierran la válvula y ponen el contador en 0. Si la válvula está abierta cuentan hasta 10 segundos y la cierran; si está cerrada cuentan el descanso de 10 segundos y solo la abren si T < 98°C. Como el descanso de 10 segundos también se exige cuando T < 70°C, esa regla queda incluida y el umbral de 70°C no cambia la decisión.
 - temperatureValveNotif: cada 1 segundo simula la caldera: con la válvula abierta suma 1°C cada 10 segundos y con la válvula cerrada resta 1°C cada 20 segundos. Cada 5 segundos evalúa e informa por consola: imprime la temperatura y, solo cuando el estado cambió, “Valvula Gas ABIERTA” o “Valvula Gas CERRADA”.
 - setup() crea las cuatro tareas en el core 1 y loop() se elimina con vTaskDelete porque todo el trabajo corre en las tareas.
+
+## 2. Bomba de agua y monitor de caudal
+
+Automatizacion de encendido de una bomba de agua para riego, cuando se detecta falta de humedad en el suelo.
+Si la humedad < 30% prender bomba. Si humedad > 90% el sistema no riega.
+Se debe encender con falta de humedad, cada 30 minutos (30 segundos) y permanecer encendida 10 segundos.
+Verificar si existe caudal para evitar que el motor trabaje en vacio, sensando cada 1 segundo.
+Si no hay caudal durante 5 segundos, detener la bomba y activar alarma por 15 segundos.
+Verificar que la bomba gire al menos a 600 rpm despues de 1 segundo, sino funciona accionar alarma durante 30 segundos.
+
+<img width="950" height="241" alt="Captura desde 2026-11-04 12-32-37" src="https://github.com/user-attachments/assets/773213e2-7dce-42b0-895d-3992c618fc82" />
+
+Sensores y actuadores:
+- Sensor de humedad: toma valores de humedad del suelo.
+- Sensor de caudal (caudalimetro): toma para medir el caudal de agua que sale de la bomba hacia el suelo.
+- Tacometro: mide las revoluciones del motor de la bomba de agua.
+- Alarma: sirena que se emite para indicar falla del motor.
+
 
 
 
