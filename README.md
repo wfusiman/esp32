@@ -58,6 +58,7 @@ Sensores y actuadores:
 - Sensor de humedad: toma valores de humedad del suelo.
 - Sensor de caudal (caudalimetro): toma para medir el caudal de agua que sale de la bomba hacia el suelo.
 - Tacometro: mide las revoluciones del motor de la bomba de agua.
+- Motor bomba de agua: enciende y apaga para realizar el riego.
 - Alarma: sirena que se emite para indicar falla del motor.
 
 
