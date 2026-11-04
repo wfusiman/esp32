@@ -17,18 +17,7 @@ La temperatura del agua en la caldera debe esta entre 70°C y 98°C.
 Si supera los 98°C, la válvula eléctrica de gas debe cerrarse inmediatamente. Misma valvula?
 La caldera debe estar prendida mas de 10 segundos, y descansar el mismo tiempo para volver a encenderse.
 
-
-(imgs/caldera.png)
-
-
-
-
-
-
-
-
-
-
+<img width="593" height="412" alt="caldera" src="https://github.com/user-attachments/assets/aa95ff47-0de3-48e9-b2ad-3d0f3ef2f1eb" />
 
 
 
