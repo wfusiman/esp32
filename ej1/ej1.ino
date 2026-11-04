@@ -158,10 +158,10 @@ void temperatureValveNotif( void *pvParams ) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t period = pdMS_TO_TICKS( PERIOD_NOTIF_MS );
 
-  int contadorCalentamiento = 0;
-  int contadorEnfriamiento = 0;
-  int contadorReporte = 0;
-  bool ultimoEstadoValvula = !valve;
+  int counterHeat = 0; // contador de calentamiento
+  int counterCool = 0; // contador de enfriamiento
+  int counterNotif = 0; // contador para notificar
+  bool lastValve = !valve; // ultimo valor de la valvula
 
   Serial.printf("-- Inicia tarea notificacion valvula...\n" );
   for (;;) {
@@ -171,16 +171,16 @@ void temperatureValveNotif( void *pvParams ) {
 
     xSemaphoreTake(xMutexTemperature, portMAX_DELAY);
     if (valve) {
-        contadorCalentamiento++;
-        if (contadorCalentamiento >= HEAT_SECONDS_PER_DEG) { // +1°C cada 10 segundos
+        counterHeat++;
+        if (counterHeat >= HEAT_SECONDS) { // +1°C cada 10 segundos
           temperature++;
-          contadorCalentamiento = 0;
+          counterHeat = 0;
         }
     } else {
-        contadorEnfriamiento++;
-        if (contadorEnfriamiento >= COOL_SECONDS_PER_DEG) { // -1°C cada 20 segundos
+        counterCool++;
+        if (counterCool >= COOL_SECONDS) { // -1°C cada 20 segundos
           temperature--;
-          contadorEnfriamiento = 0;
+          counterCool = 0;
         }
     }
     v = valve;
@@ -188,13 +188,13 @@ void temperatureValveNotif( void *pvParams ) {
     xSemaphoreGive(xMutexTemperature);
 
     // Evaluación y Notificación cada 5 segundos
-    if (++contadorReporte >= REPORT_EVERY_S) {
-      contadorReporte = 0;
+    if (++counterNotif >= NOTIF_SECONDS) {
+      counterNotif = 0;
 
-      if (v != ultimoEstadoValvula) {
-        // Cambio de estado: imprime solo el estado de la valvula
-        Serial.print( v ? "** Valvula Gas ABIERTA" : "** Valvula Gas CERRADA" );
-        ultimoEstadoValvula = v;
+      if (v != lastValve) { // Si cambio el estado de la valvula se imprime
+        //Serial.print( v ? "** Valvula Gas ABIERTA" : "** Valvula Gas CERRADA" );
+        Serial.printf( "** Valvula Gas %s   ", v ? "ABIERTA" : "CERRADA" );
+        lastValve = v;
       } 
       Serial.printf("-- Temperatura: %d °C\n", t);
     }

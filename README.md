@@ -37,11 +37,9 @@ Las prioridades siguen el criterio Rate Monotonic (menor período, mayor priorid
 La válvula es un único actuador que escriben la tarea de seguridad y la de control normal, por lo que es un recurso compartido. Las variables temperature, valve y counter se protegen con un mutex de FreeRTOS (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad prolongadas. Cada decisión se toma dentro de una única sección crítica, de modo que ninguna tarea actúa con una temperatura desactualizada.
 
 Explicación del código:
-- init(): configura el puerto serie a 115200 baudios, crea el mutex, genera la temperatura inicial aleatoria entre 50°C y 120°C con esp_random(), deja la válvula cerrada y el contador en 10 para que la caldera pueda encender de inmediato.
 - temperatureReader: cada 1 segundo lee los caracteres disponibles del puerto serie, arma la línea hasta el salto de línea y, si tiene el formato T:XX y un valor válido, reemplaza la temperatura actual. Así se puede forzar cualquier temperatura (ej. T:75) desde el monitor serie.
 - temperatureControlSecurity y temperatureControlNormal: implementan el diagrama de decisión. Si T > 98°C cierran la válvula y ponen el contador en 0. Si la válvula está abierta cuentan hasta 10 segundos y la cierran; si está cerrada cuentan el descanso de 10 segundos y solo la abren si T < 98°C. Como el descanso de 10 segundos también se exige cuando T < 70°C, esa regla queda incluida y el umbral de 70°C no cambia la decisión.
 - temperatureValveNotif: cada 1 segundo simula la caldera: con la válvula abierta suma 1°C cada 10 segundos y con la válvula cerrada resta 1°C cada 20 segundos. Cada 5 segundos evalúa e informa por consola: imprime la temperatura y, solo cuando el estado cambió, “Valvula Gas ABIERTA” o “Valvula Gas CERRADA”.
-- setup() crea las cuatro tareas en el core 1 y loop() se elimina con vTaskDelete porque todo el trabajo corre en las tareas.
 
 ## 2. Bomba de agua y monitor de caudal
 

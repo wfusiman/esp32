@@ -13,8 +13,6 @@
 #include <string.h>
 #include <stddef.h>
 
-//#include <Arduino.h>
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -29,11 +27,11 @@
 #define PERIOD_READ_MS       1000
 #define PERIOD_CONTROL_MS    1000
 #define PERIOD_NOTIF_MS      1000
-#define REPORT_EVERY_S       5       // evaluacion/notificacion cada 5 s
  
-// Simulacion de la caldera
-#define HEAT_SECONDS_PER_DEG 10      // +1 C cada 10 s con valvula abierta
-#define COOL_SECONDS_PER_DEG 20      // -1 C cada 20 s con valvula cerrada
+// Simulacion y notificacion de la caldera 
+#define HEAT_SECONDS         10 // +1° C cada 10 segundos
+#define COOL_SECONDS         20 // -1° C cada 20 segundos
+#define NOTIF_SECONDS        5  // evaluacion/notificacion cada 5 s
 
 #define PRIORITY_SECURITY    4
 #define PRIORITY_READ        3
