@@ -23,10 +23,10 @@
 #define TEMP_MIN              70     // Temperatura minima 
 #define TIME_ON_OFF           10     // minimo encendida y minimo apagada
 
-#define PERIOD_SECURITY_MS   500
-#define PERIOD_READ_MS       1000
-#define PERIOD_CONTROL_MS    1000
-#define PERIOD_NOTIF_MS      1000
+#define PERIOD_SECURITY_MS   500      // periodo medio segundo
+#define PERIOD_READ_MS       1000     // periodo lector temperatura 1 segundo
+#define PERIOD_CONTROL_MS    1000     // periodo control normal de temperatura 1 segundo
+#define PERIOD_NOTIF_MS      1000     // periodo notificacion 1 segundo
  
 // Simulacion y notificacion de la caldera 
 #define HEAT_SECONDS         10 // +1° C cada 10 segundos
@@ -46,7 +46,7 @@
 
 extern int temperature;   // Valor de temperatura actual
 extern bool valve;        // valvula => abierta=true, cerrada=false
-extern int counter;
+extern int counter;       // contador de segundos 
 extern SemaphoreHandle_t xMutexTemperature; // acceso lectura/escritura al valor de la temperatura 
 
 /* -- prototipos */

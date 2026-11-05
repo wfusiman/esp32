@@ -15,11 +15,13 @@ SemaphoreHandle_t xMutexTemperature;
 
 void setup() {
   init();
+  Serial.printf("\n");
   delay( 1000 );
-  Serial.printf("----------------------------------------\n");
-  Serial.printf("-- Inicia Sistema de Control de Caldera\n");
-  Serial.printf("-- temperatura inicial: %d °C\n", temperature);
-  Serial.printf("----------------------------------------\n");
+  Serial.printf("\n");
+  Serial.printf("\t|--------------------------------------\n");
+  Serial.printf("\t| Inicia Sistema de Control de Caldera \n");
+  Serial.printf("\t| temperatura inicial: %d °C \n", temperature);
+  Serial.printf("\t|--------------------------------------\n");
 
   // Creacion de tareas 
   xTaskCreatePinnedToCore( temperatureControlSecurity, "Control de limite de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_SECURITY, NULL, CORE );
@@ -29,8 +31,6 @@ void setup() {
 }
 
 void loop() {
-  // Bloquea la tarea loop.
-  //vTaskDelay( portMAX_DELAY );
   // quita la tarea del scheduler
   vTaskDelete( NULL );
 }
@@ -187,15 +187,12 @@ void temperatureValveNotif( void *pvParams ) {
     t = temperature;
     xSemaphoreGive(xMutexTemperature);
 
-    // Evaluación y Notificación cada 5 segundos
-    if (++counterNotif >= NOTIF_SECONDS) {
-      counterNotif = 0;
-
-      if (v != lastValve) { // Si cambio el estado de la valvula se imprime
-        //Serial.print( v ? "** Valvula Gas ABIERTA" : "** Valvula Gas CERRADA" );
-        Serial.printf( "** Valvula Gas %s   ", v ? "ABIERTA" : "CERRADA" );
+    if (v != lastValve) { // Si cambio el estado de la valvula se imprime
+        Serial.printf( "-- Temperatura: %d °C \t --> Valvula Gas %s\n",t, v ? "ABIERTA" : "CERRADA" );
         lastValve = v;
-      } 
+    }
+    else if (++counterNotif >= NOTIF_SECONDS) { // Evaluación y Notificación cada 5 segundos
+      counterNotif = 0;
       Serial.printf("-- Temperatura: %d °C\n", t);
     }
   }
