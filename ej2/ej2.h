@@ -22,7 +22,7 @@
 #define PERIOD_CONTROL_SEC_MS    500  // peridod medio segundo
 #define PERIOD_READ_MS           1000 // periodo 1 segundo
 #define PERIOD_CONTROL_IRG_MS    1000 // periodo 1 segundo
-#define PERIOD_RUN_NOTIF_MS      1000 // periodo 1 segundo
+#define PERIOD_RUN_NOTIF_MS      1000 // periodo 2 segundo
  
 #define PRIORITY_CONTROL_SEC    4   // max prioridad
 #define PRIORITY_READ           3   // prioridad media
@@ -51,7 +51,7 @@ extern SemaphoreHandle_t xMutexSensores;  // mutex para leer/escribir valores se
 
 // --- Tareas ---
 void sensorsRead(void *pvParameters);
-void controlSecurityPump(void *pvParameters);
+void securityControlPump(void *pvParameters);
 void irrigationControl(void *pvParameters);
 void runNotif(void *pvParameters);
 void init();

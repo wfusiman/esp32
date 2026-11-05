@@ -116,8 +116,7 @@ void securityControlPump(void *pvParameters) {
       xSemaphoreGive(xMutexSensores);
     }
 
-    // --- Control de Alarma por Duración ---
-    if (alarmp) {
+    if (alarmp) { // control de alarma y duracion
       if (modeAlarmCaudal) {
         counterAlarmCaudal++;
         if (counterAlarmCaudal >= ALARM_FLOW_TICKS) { // 15 segundos (150 * 100ms)
@@ -133,10 +132,8 @@ void securityControlPump(void *pvParameters) {
           counterAlarmRPM = 0;
         }
       }
-      continue; // Si hay alarma activa, saltamos la lógica de sensado momentáneamente
     }
-
-    if (tempBomba) { // Verificación de Caudal (Sensado cada 1 segundo (10 ciclos de 100ms)
+    else if (tempBomba) { // Chequeo de Caudal (Sensado cada 1 segundo (10 ciclos de 100ms)
       if (tempCaudal == 0) { // Si no hay caudal (caudal == 0) durante 5 segundos -> Apagar bomba y activar alarma 15 segundos
         counterNoCaudal++;
         if (counterNoCaudal >= NO_FLOW_TICKS) { // 5 segundos
@@ -151,19 +148,17 @@ void securityControlPump(void *pvParameters) {
         counterNoCaudal = 0;
       }
 
-      // Verificación de Tacómetro (Girar a >= 600 RPM después de 1 segundo)
+      // Chequeo de Tacómetro
       counterRPM++;
-      if (counterRPM == RPM_CHECK_TICKS) { // Exactamente después de 1 segundo (10 * 100ms)
-        if (tempRpm < 600) {
+      if (counterRPM == RPM_CHECK_TICKS) { // Después de 1 segundo (10 * 100ms)
+        if (tempRpm < 600) { 
           pump = false;
           alarmp = true;
           modeAlarmRPM = true;
           counterAlarmRPM = 0;
           errMessage = "ERROR: Bomba sin rotacion";
         }
-      } else if (counterRPM > RPM_CHECK_TICKS) {
-        counterRPM = RPM_CHECK_TICKS +1 ; // Evitar desbordamiento
-      }
+      } 
     } else {
       counterNoCaudal = 0;
       counterRPM = 0;
@@ -192,29 +187,22 @@ void irrigationControl(void *pvParameters) {
       xSemaphoreGive(xMutexSensores);
     }
 
-    // Si hay una alarma activa, no operar el riego automático
+    // Si hay una alarma activa, no se puede activar el riego automático
     if (tempAlarm) {
       counterOnOff = 0;
-      continue;
     }
-
-    // Condición de humedad > 90%: el sistema no riega
-    if (tempHumidity > 90) {
+    else if (tempHumidity > 90) { // si la humedad > 90%, no se riega
       pump = false;
       counterOnOff = 0;
-      continue;
     }
-
-    // Condición de humedad < 30%: iniciar riego con ciclos de 30s encendida y 10s apagada
-    if (tempHumidity < 30 || counterOnOff > 0) {
+    else if (tempHumidity < 30 || counterOnOff > 0) { // si humedad < 30%, iniciar riego con ciclos de 30 segundo encendido y 10 segundos apagado
       counterOnOff++;
 
-      if (!pump && counterOnOff <= 30) {
-        pump = true;
-      } else if (pump && counterOnOff > 30) {
+      if (!pump && counterOnOff <= 30) { // Si la bomba no esta activa y countador <= 30 prender bomba.
+        pump = true; 
+      } else if (pump && counterOnOff > 30) { // Si la bomba esta activa y countador > 30 apagar bomba.
         pump = false;
       }
-
       // Reiniciar ciclo completo de pausa/riego (30s encendida + 10s apagada = 40s total)
       if (counterOnOff >= 40) {
         counterOnOff = 0;
@@ -227,7 +215,7 @@ void irrigationControl(void *pvParameters) {
 }
 
 /*
-* Ejecucion de simulación y notificaciones por consola (Periodicidad: 1s / Reporte cada 5s)
+* Ejecucion de simulación y notificaciones por consola (Periodicidad: 1 segundo / Reporte cada 1 segundo)
 */
 void runNotif(void *pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -255,7 +243,7 @@ void runNotif(void *pvParameters) {
     }
     // Imprime si hay cambios de estado de la bomba
     if (actualPump != lastPump) {
-      Serial.printf("Bomba: %s\n", actualPump ? "ENCENDIDA":"APAGADA");
+      Serial.printf("*** Bomba: %s\n", actualPump ? "ENCENDIDA":"APAGADA");
       lastPump = actualPump;
     }
     // Imprime errores de seguridad, si hay
@@ -264,6 +252,6 @@ void runNotif(void *pvParameters) {
       errMessage = ""; 
     }
     // Notifica valores 
-    Serial.printf("[Monitor] Humedad: %d%% | Caudal: %d | RPM: %d | Bomba: %s | Alarma %s\n", h, c, r, actualPump ? "ENCENDIDA" : "APAGADA", alarmp ? "ENCENDIDA":"APAGADA");
+    Serial.printf("Valores -> Humedad: %d%% | Caudal: %d | RPM: %d | Bomba: %s | Alarma %s\n", h, c, r, actualPump ? "ENCENDIDA" : "APAGADA", alarmp ? "ENCENDIDA":"APAGADA");
   }
 }
