@@ -26,6 +26,7 @@ Diagrama de decisión de la lógica de control (tarea de control normal, cada 1 
 
 <img width="1386" height="1158" alt="image" src="https://github.com/user-attachments/assets/b0a65549-2c92-4ced-be2c-31a6f45df91f" />
 
+
 Simulación: implementación en placa ESP32 con FreeRTOS.
 - Leer temperatura desde el puerto serie, valores en formato T:XX (ej, T:75 indica 75°C), cada 1 segundo.
 - Evaluar cada 5 segundos y notificar por consola el estado de la válvula, imprimiendo “Válvula Gas ABIERTA” y “Válvula Gas CERRADA” solo cuando cambia estado.
@@ -39,6 +40,8 @@ Tareas implementadas:
 
 Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
 El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
+
+--- 
 
 ## 2. Bomba de agua y monitor de caudal
 
@@ -58,6 +61,16 @@ Sensores y actuadores:
 - Motor bomba de agua: enciende y apaga para realizar el riego.
 - Alarma: sirena que se emite para indicar falla del motor.
 
+Simular el sistema en la placa ESP32, mediante FreeRTOS y usando el puerto Serie:
+- Humedad por debajo del 30% se debe prender la bomba por arriba del 90% el sistema no riega
+más.
+- El caudal se simulará ingresando leyendo por entrada serial C:1 (hay caudal) o C:0 (no hay
+caudal).
+- Salida (Simulación de motor y alarma): El sistema debe imprimir "Bomba: ENCENDIDA" y
+"Bomba: APAGADA" según corresponda. Si durante el ciclo de encendido se detecta que no
+hay caudal, imprimir "ERROR: Bomba detenida por falta de caudal" o ERROR: Bomba sin
+rotación.
+- La velocidad de motor se ingresa a través una entrada serial B:velocidad rpm.
 
 
 
