@@ -27,19 +27,21 @@ Diagrama de decisión de la lógica de control (tarea de control normal, cada 1 
 <img width="1386" height="1158" alt="image" src="https://github.com/user-attachments/assets/b0a65549-2c92-4ced-be2c-31a6f45df91f" />
 
 
+Simulación: implementación en placa ESP32 con FreeRTOS.
+- Leer temperatura desde el puerto serie, valores en formato T:XX (ej, T:75 indica 75°C), cada 1 segundo.
+- Evaluar cada 5 segundos y notificar por consola el estado de la válvula, imprimiendo “Válvula Gas ABIERTA” y “Válvula Gas CERRADA” solo cuando cambia estado.
+- Temperatura inicial aleatoria entre 50°C y 120°C, (tasa de enfriamiento 1° casa 20 segundos) (tasa de calentamiento 1° casa 10 segundos).
+
 Tareas implementadas:
-- tarea lectura de temperatura (temperatureReader): toma la temperatura del agua cada 1 segundo leyendo el puerto serie (formato T:XX), sin bloquear, y actualiza la variable compartida bajo mutex (prioridad 3 / periodicidad 1000 ms).
-- tarea control temperatura máxima (temperatureControlSecurity): monitorea cada 500 ms si la temperatura supera 98°C; en ese caso cierra el paso de gas y resetea el contador de segundos (prioridad máxima 4 / periodicidad 500 ms).
-- tarea control temperatura normal (temperatureControlNormal): cada 1 segundo controla la temperatura y los tiempos de encendido y apagado: 10 segundos encendida y 10 segundos de descanso antes de volver a encender (prioridad normal 2 / periodicidad 1000 ms).
+- tarea lectura de temperatura (temperatureReader): toma la temperatura del agua cada 1 segundo leyendo el puerto serie (formato T:XX), sin bloquear, y actualiza el valor actual de temperature. (prioridad media = 3  / periodicidad 1000 ms).
+- tarea control temperatura máxima (temperatureControlSecurity): monitorea cada medio segundo si la temperatura supera 98°C; en ese caso cierra el paso de gas y resetea el contador de segundos (prioridad máxima = 4 / periodicidad 500 ms).
+- tarea control temperatura normal (temperatureControlNormal): cada 1 segundo controla la temperatura y los tiempos de encendido y apagado: 10 segundos encendida y 10 segundos de descanso antes de volver a encender (prioridad normal = 2 / periodicidad 1000 ms).
 - tarea notificación y simulación (temperatureValveNotif): cada 1 segundo simula el calentamiento (1° cada 10 segundos) y enfriamiento (1° cada 20 segundos) del agua y cada 5 segundos informa por consola (prioridad baja 1 / periodicidad 1000 ms).
 
 Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
-La válvula es un único actuador que escriben la tarea de seguridad y la de control normal, por lo que es un recurso compartido. Las variables temperature, valve y counter se protegen con un mutex de FreeRTOS (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad prolongadas. Cada decisión se toma dentro de una única sección crítica, de modo que ninguna tarea actúa con una temperatura desactualizada.
+El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
 
-Explicación del código:
-- temperatureReader: cada 1 segundo lee los caracteres disponibles del puerto serie, arma la línea hasta el salto de línea y, si tiene el formato T:XX y un valor válido, reemplaza la temperatura actual. Así se puede forzar cualquier temperatura (ej. T:75) desde el monitor serie.
-- temperatureControlSecurity y temperatureControlNormal: implementan el diagrama de decisión. Si T > 98°C cierran la válvula y ponen el contador en 0. Si la válvula está abierta cuentan hasta 10 segundos y la cierran; si está cerrada cuentan el descanso de 10 segundos y solo la abren si T < 98°C. Como el descanso de 10 segundos también se exige cuando T < 70°C, esa regla queda incluida y el umbral de 70°C no cambia la decisión.
-- temperatureValveNotif: cada 1 segundo simula la caldera: con la válvula abierta suma 1°C cada 10 segundos y con la válvula cerrada resta 1°C cada 20 segundos. Cada 5 segundos evalúa e informa por consola: imprime la temperatura y, solo cuando el estado cambió, “Valvula Gas ABIERTA” o “Valvula Gas CERRADA”.
+--- 
 
 ## 2. Bomba de agua y monitor de caudal
 
@@ -59,6 +61,16 @@ Sensores y actuadores:
 - Motor bomba de agua: enciende y apaga para realizar el riego.
 - Alarma: sirena que se emite para indicar falla del motor.
 
+Simular el sistema en la placa ESP32, mediante FreeRTOS y usando el puerto Serie:
+- Humedad por debajo del 30% se debe prender la bomba por arriba del 90% el sistema no riega
+más.
+- El caudal se simulará ingresando leyendo por entrada serial C:1 (hay caudal) o C:0 (no hay
+caudal).
+- Salida (Simulación de motor y alarma): El sistema debe imprimir "Bomba: ENCENDIDA" y
+"Bomba: APAGADA" según corresponda. Si durante el ciclo de encendido se detecta que no
+hay caudal, imprimir "ERROR: Bomba detenida por falta de caudal" o ERROR: Bomba sin
+rotación.
+- La velocidad de motor se ingresa a través una entrada serial B:velocidad rpm.
 
 
 
