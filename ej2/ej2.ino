@@ -6,24 +6,26 @@
 
 #include "ej2.h"
 
-int humidity = HUMIDITY_MIN;       // Porcentaje de humedad (%)
-int caudal = 1;         // Caudal: 1=hay caudal, 0 = no hay caudal
-int rpm = 1000;         // Velocidad del motor (RPM)
-bool pump = false;      // Bomba de agua,  encendida = true, apagada = false 
-bool alarmp = false;    // Alarma. encendida = true, apagada = false 
-String errMessage = ""; // Mensaje de error a notificar 
+int humidity;       // Porcentaje de humedad (%)
+int caudal;         // Caudal: 1=hay caudal, 0 = no hay caudal
+int rpm;            // Velocidad del motor (RPM)
+bool pump;          // Bomba de agua,  encendida = true, apagada = false 
+bool alarmp;        // Alarma. encendida = true, apagada = false 
+String errMessage;  // Mensaje de error a notificar 
 
-SemaphoreHandle_t xMutexSensores;
+SemaphoreHandle_t xMutexSensors;
 
 void setup() {
-  init();
-  Serial.printf("\n");
+  initSystem();
   delay( 1000 );
-  Serial.printf("\n");
-  Serial.printf("\t|-------------------------------------------------------\n");
-  Serial.printf("\t| Inicia Sistema de Control de Riego y control de Bomba \n");
-  Serial.printf("\t| Comandos: H:XX, C:1|0, B:XXXX \n");
-  Serial.printf("\t|-------------------------------------------------------\n");
+
+  Serial.println("\t|------------------------------------------------------------");
+  Serial.println("\t| Inicia Sistema de Control de Riego y control de Bomba ");
+  Serial.println("\t| Comandos:");
+  Serial.println("\t| \t H:XX (ej. H:40 --> cambia humedad a 40%)");
+  Serial.println("\t| \t C:1|0 (ej. C:0 --> cambia a sin caudal)");
+  Serial.println("\t| \t B:XXXX (ej. B:1500 --> cambia a 1500 rpm de la bomba)");
+  Serial.println("\t|------------------------------------------------------------\n");
 
   // Se crean las tareas
   xTaskCreatePinnedToCore( securityControlPump, "Control de seguridad bomba de agua", STACK_TASK_SIZE, NULL, PRIORITY_CONTROL_SEC,NULL, CORE );
@@ -37,17 +39,25 @@ void loop() {
   vTaskDelete( NULL );
 }
 
-void init() {
+/*
+* Inicializa variables
+*/
+void initSystem() {
   Serial.begin( SERIAL_BAUD );
+  Serial.setTimeout(50); 
   //limpiar el buffer: Lee y descarta todo lo que tenga acumulado
   while (Serial.available() > 0) {
     Serial.read(); 
   }
   // Crea mutex para proteger variables compartidas
-  xMutexSensores = xSemaphoreCreateMutex();
+  xMutexSensors = xSemaphoreCreateMutex();
 
-  // Inicialización de semilla aleatoria para simulación
-  randomSeed(analogRead(0));
+  humidity = HUMIDITY_LOW;       // Porcentaje de humedad (%)
+  caudal = 1;      // con caudal
+  rpm = 1000;      
+  pump = false;    // Bomba de agua apagada
+  alarmp = false;  // Alarma apagada 
+  errMessage = ""; // sin mensajes
 }
 
 /*
@@ -59,32 +69,31 @@ void sensorsRead(void *pvParameters) {
   const TickType_t period = pdMS_TO_TICKS( PERIOD_READ_MS );
 
   for (;;) {
-    vTaskDelayUntil(&xLastWakeTime, period);
-
     if (Serial.available() > 0) {
       String input = Serial.readStringUntil('\n');
       input.trim();
       
       if (input.startsWith("H:")) { // Entrada de humedad
         int val = input.substring(2).toInt();
-        if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(20)) == pdTRUE) {
+        if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(20)) == pdTRUE) {
           humidity = val;
-          xSemaphoreGive(xMutexSensores);
+          xSemaphoreGive(xMutexSensors);
         }
       } else if (input.startsWith("C:")) { // Entrada de caudal: 0 no hay caudal, >= 1 hay caudal
         int val = input.substring(2).toInt();
-        if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(20)) == pdTRUE) {
+        if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(20)) == pdTRUE) {
           caudal = val;
-          xSemaphoreGive(xMutexSensores);
+          xSemaphoreGive(xMutexSensors);
         }
       } else if (input.startsWith("B:")) { // Entrada rpm de bomba
         int val = input.substring(2).toInt();
-        if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(20)) == pdTRUE) {
+        if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(20)) == pdTRUE) {
           rpm = val;
-          xSemaphoreGive(xMutexSensores);
+          xSemaphoreGive(xMutexSensors);
         }
       }
     }
+    vTaskDelayUntil(&xLastWakeTime, period);
   }
 }
 
@@ -103,17 +112,15 @@ void securityControlPump(void *pvParameters) {
   static bool modeAlarmRPM = false;
 
   for (;;) {
-    vTaskDelayUntil(&xLastWakeTime, period );
+    int tCaudal = 0; // almacenamiento temporal valor caudal
+    int tRpm = 0;    // almacenamiento temporal valor rpm
+    bool tPump = false; // almacenamiento temporal valor bomba
 
-    int tempCaudal = 0; // almacenamiento temporal valor caudal
-    int tempRpm = 0;    // almacenamiento temporal valor rpm
-    bool tempBomba = false; // almacenamiento temporal valor bomba
-
-    if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(10)) == pdTRUE) {
-      tempCaudal = caudal;
-      tempRpm = rpm;
-      tempBomba = pump;
-      xSemaphoreGive(xMutexSensores);
+    if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(10)) == pdTRUE) {
+      tCaudal = caudal;
+      tRpm = rpm;
+      tPump = pump;
+      xSemaphoreGive(xMutexSensors);
     }
 
     if (alarmp) { // control de alarma y duracion
@@ -133,8 +140,8 @@ void securityControlPump(void *pvParameters) {
         }
       }
     }
-    else if (tempBomba) { // Chequeo de Caudal (Sensado cada 1 segundo (10 ciclos de 100ms)
-      if (tempCaudal == 0) { // Si no hay caudal (caudal == 0) durante 5 segundos -> Apagar bomba y activar alarma 15 segundos
+    else if (tPump) { // Chequeo de Caudal (Sensado cada 1 segundo (10 ciclos de 100ms)
+      if (tCaudal == 0) { // Si no hay caudal (caudal == 0) durante 5 segundos -> Apagar bomba y activar alarma 15 segundos
         counterNoCaudal++;
         if (counterNoCaudal >= NO_FLOW_TICKS) { // 5 segundos
           pump = false;
@@ -151,7 +158,7 @@ void securityControlPump(void *pvParameters) {
       // Chequeo de Tacómetro
       counterRPM++;
       if (counterRPM == RPM_CHECK_TICKS) { // Después de 1 segundo (10 * 100ms)
-        if (tempRpm < 600) { 
+        if (tRpm < 600) { 
           pump = false;
           alarmp = true;
           modeAlarmRPM = true;
@@ -163,6 +170,7 @@ void securityControlPump(void *pvParameters) {
       counterNoCaudal = 0;
       counterRPM = 0;
     }
+    vTaskDelayUntil(&xLastWakeTime, period );
   }
 }
 
@@ -176,26 +184,24 @@ void irrigationControl(void *pvParameters) {
   static int counterOnOff = 0; // Controla los tiempos de encendido (30s) y apagado (10s)
 
   for (;;) {
-    vTaskDelayUntil(&xLastWakeTime, period );
+    int tHumidity = 0;
+    bool tAlarm = false;
 
-    int tempHumidity = 0;
-    bool tempAlarm = false;
-
-    if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(20)) == pdTRUE) {
-      tempHumidity = humidity;
-      tempAlarm = alarmp;
-      xSemaphoreGive(xMutexSensores);
+    if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(20)) == pdTRUE) {
+      tHumidity = humidity;
+      tAlarm = alarmp;
+      xSemaphoreGive(xMutexSensors);
     }
 
     // Si hay una alarma activa, no se puede activar el riego automático
-    if (tempAlarm) {
+    if (tAlarm) {
       counterOnOff = 0;
     }
-    else if (tempHumidity > 90) { // si la humedad > 90%, no se riega
+    else if (tHumidity > HUMIDITY_HIGH) { // si la humedad > 90%, no se riega
       pump = false;
       counterOnOff = 0;
     }
-    else if (tempHumidity < 30 || counterOnOff > 0) { // si humedad < 30%, iniciar riego con ciclos de 30 segundo encendido y 10 segundos apagado
+    else if (tHumidity < HUMIDITY_LOW || counterOnOff > 0) { // si humedad < 30%, iniciar riego con ciclos de 30 segundo encendido y 10 segundos apagado
       counterOnOff++;
 
       if (!pump && counterOnOff <= 30) { // Si la bomba no esta activa y countador <= 30 prender bomba.
@@ -211,6 +217,7 @@ void irrigationControl(void *pvParameters) {
       pump = false;
       counterOnOff = 0;
     }
+    vTaskDelayUntil(&xLastWakeTime, period );
   }
 }
 
@@ -233,13 +240,13 @@ void runNotif(void *pvParameters) {
     int r = 0;
     bool a = false;
 
-    if (xSemaphoreTake(xMutexSensores, pdMS_TO_TICKS(20)) == pdTRUE) {
+    if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(20)) == pdTRUE) {
       actualPump = pump;
       h = humidity;
       c = caudal;
       r = rpm;
       a = alarmp;
-      xSemaphoreGive(xMutexSensores);
+      xSemaphoreGive(xMutexSensors);
     }
     // Imprime si hay cambios de estado de la bomba
     if (actualPump != lastPump) {
@@ -252,6 +259,6 @@ void runNotif(void *pvParameters) {
       errMessage = ""; 
     }
     // Notifica valores 
-    Serial.printf("Valores -> Humedad: %d%% | Caudal: %d | RPM: %d | Bomba: %s | Alarma %s\n", h, c, r, actualPump ? "ENCENDIDA" : "APAGADA", alarmp ? "ENCENDIDA":"APAGADA");
+    Serial.printf("[Sensores] --> Humedad: %d%% | Caudal: %d | RPM: %d | [Actuadores] --> Bomba: %s | Alarma %s\n", h, c, r, actualPump ? "ENCENDIDA" : "APAGADA", alarmp ? "ENCENDIDA":"APAGADA");
   }
 }

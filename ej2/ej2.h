@@ -17,22 +17,28 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 
-#define SERIAL_BAUD                  115200
+#define SERIAL_BAUD              115200
 
-#define PERIOD_CONTROL_SEC_MS    500  // peridod medio segundo
+#define PERIOD_CONTROL_SEC_MS    1000 // periodo 1 segundo
 #define PERIOD_READ_MS           1000 // periodo 1 segundo
 #define PERIOD_CONTROL_IRG_MS    1000 // periodo 1 segundo
-#define PERIOD_RUN_NOTIF_MS      1000 // periodo 2 segundo
+#define PERIOD_RUN_NOTIF_MS      1000 // periodo 1 segundo
  
 #define PRIORITY_CONTROL_SEC    4   // max prioridad
-#define PRIORITY_READ           3   // prioridad media
-#define PRIORITY_CONTROL_IRG    1   // prioridad baja
+#define PRIORITY_CONTROL_IRG    3   // prioridad alta
+#define PRIORITY_READ           2   // prioridad media
 #define PRIORITY_RUN_NOTIF      1   // prioridad baja
 
-#define STACK_TASK_SIZE 4096  // Tamaño del stack por tarea. 
-#define CORE        1         // Un core
+#define STACK_TASK_SIZE 4096 // Tamaño del stack por tarea. 
+#define CORE            1    // Un core
+#define LED_PIN         2    // Pin led de la placa
 
-#define HUMIDITY_MIN    40 // Minima humedad del suelo
+#define HUMIDITY_HIGH     90 // Mayor a 90% no se riega
+#define HUMIDITY_LOW      30 // Menor a 30%  se riega
+#define RPM_MIN           600 // revoluciones minimas de la bomba
+#define IRRIG_PERIOD      30  // riego encienda cada 30 segundos.
+#define IRRIG_ON          10  // riego permanece encendido 10 segundos.
+
 #define TICKS_PER_SEC     (1000 / PERIOD_CONTROL_SEC_MS)   // 2 ticks por segundo
 #define NO_FLOW_TICKS     (5  * TICKS_PER_SEC)             // 5 s sin caudal
 #define ALARM_FLOW_TICKS  (15 * TICKS_PER_SEC)             // alarma 15 s
@@ -45,15 +51,15 @@ extern int caudal;         // Caudal de agua en la bomba
 extern int rpm;            // Velocidad del motor (RPM)
 extern bool pump;          // bomba de agua, true = encendida, false = apagada
 extern bool alarmp;        // alarma de bomba de agua, true = encendida, false = apagada
-extern String errMessage;      // Mensaje error 
+extern String errMessage;  // Mensaje error 
 
-extern SemaphoreHandle_t xMutexSensores;  // mutex para leer/escribir valores sensores humedad, caudal y rpm
+extern SemaphoreHandle_t xMutexSensors;  // mutex para leer/escribir valores sensores humedad, caudal y rpm
 
 // --- Tareas ---
 void sensorsRead(void *pvParameters);
 void securityControlPump(void *pvParameters);
 void irrigationControl(void *pvParameters);
 void runNotif(void *pvParameters);
-void init();
+void initSystem();
 
 #endif

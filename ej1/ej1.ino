@@ -12,16 +12,21 @@ bool valve = false;   // valvula abierta=true, cerrada=false
 int counter = 0;  // contador on/off de la valvula
 SemaphoreHandle_t xMutexTemperature;
 
+static void setValve( bool on_off ) {
+  valve = on_off;
+  digitalWrite( LED_PIN, on_off ? HIGH:LOW );
+}
 
 void setup() {
-  init();
-  Serial.printf("\n");
+  initSystem();
   delay( 1000 );
-  Serial.printf("\n");
-  Serial.printf("\t|--------------------------------------\n");
-  Serial.printf("\t| Inicia Sistema de Control de Caldera \n");
-  Serial.printf("\t| temperatura inicial: %d °C \n", temperature);
-  Serial.printf("\t|--------------------------------------\n");
+
+  Serial.println("\t|---------------------------------------------------------------");
+  Serial.println("\t| Inicia Sistema de Control de Caldera");
+  Serial.printf("\t| Temperatura de caldera inicial %d°C\n", temperature );
+  Serial.println("\t| Comando:");
+  Serial.println("\t|  T:XX (ej. T:50 -> cambia la temperatura de la caldera a 50°C)");
+  Serial.println("\t|---------------------------------------------------------------");
 
   // Creacion de tareas 
   xTaskCreatePinnedToCore( temperatureControlSecurity, "Control de limite de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_SECURITY, NULL, CORE );
@@ -38,22 +43,25 @@ void loop() {
 /*
 * Inicializa 
 */
-void init() {
+void initSystem() {
   // inicializa monitor serial
   Serial.begin( SERIAL_BAUD );
+  Serial.setTimeout(50); 
   //limpiar el buffer: Lee y descarta todo lo que tenga acumulado
   while (Serial.available() > 0) {
     Serial.read(); 
   }
 
-  // Iniicializa mutex
-  xMutexTemperature = xSemaphoreCreateMutex();
+  // Inicializa led (apagado: caldera apagada)
+  pinMode( LED_PIN, OUTPUT );
+  setValve( false );
 
-  // Inicializa temperatura aleatoria y valuvula cerrada
+  // Inicializa temperatura aleatoria y valvula cerrada
   randomSeed( esp_random() );
   temperature = random( 50,121 );
-  valve = false;
-  counter = TIME_ON_OFF;
+  counter = 0; 
+  // Iniicializa mutex
+  xMutexTemperature = xSemaphoreCreateMutex();
 }
 
 /*
@@ -66,7 +74,6 @@ void temperatureReader( void *pvParams ) {
   char buf[16];
   uint8_t n = 0;
 
-  Serial.printf("-- Inicia tarea lectura de temperatura...\n" );
   for (;;) {
     vTaskDelayUntil( &xLastWakeTime, period );
 
@@ -99,16 +106,14 @@ void temperatureReader( void *pvParams ) {
 void temperatureControlSecurity( void *pvParams ) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t period = pdMS_TO_TICKS( PERIOD_SECURITY_MS );
-  int temp = 0; // Guarda el valor de la temperatura actual leida.
 
-  Serial.printf("-- Inicia tarea control seguridad temperatura...\n" );
   for (;;) {
     vTaskDelayUntil( &xLastWakeTime, period );
 
     xSemaphoreTake( xMutexTemperature, portMAX_DELAY);      
     // Controla si el valor supera la temperatura maxima 98°C.
     if (temperature > TEMP_MAX) {
-      valve = false;
+      setValve( false );
       counter =0;
     }
     xSemaphoreGive( xMutexTemperature );
@@ -122,20 +127,17 @@ void temperatureControlNormal( void *pvParams ) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t period = pdMS_TO_TICKS( PERIOD_CONTROL_MS );
   
-  int temp = 0; // Guarda el valor de la temperatura actual leida.
-  counter = 0; // contador de segundos
-  Serial.printf("-- Inicia tarea control valvula...\n" );
   for (;;) {
     vTaskDelayUntil( &xLastWakeTime, period );
 
     xSemaphoreTake( xMutexTemperature, portMAX_DELAY );
     if (temperature > TEMP_MAX) {
-      valve = false;
+      setValve( false );
       counter = 0;
     }
     else if (valve){
       if (++counter >= TIME_ON_OFF) {
-        valve = false;
+        setValve( false );
         counter = 0;
       }
     }
@@ -143,7 +145,7 @@ void temperatureControlNormal( void *pvParams ) {
       if (counter < TIME_ON_OFF)
         counter++;
       if (counter >= TIME_ON_OFF && temperature < TEMP_MAX) {
-        valve = true;
+        setValve( true );
         counter = 0;
       }
     }
@@ -152,7 +154,8 @@ void temperatureControlNormal( void *pvParams ) {
 }
 
 /*
-* Ejecucion e impresion de cambios de valvula
+* Ejecucion simulacion calentamiento/enfriamiento de la caldera
+* y notificacion de cambios de estado  de la valvula
 */
 void temperatureValveNotif( void *pvParams ) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -163,7 +166,6 @@ void temperatureValveNotif( void *pvParams ) {
   int counterNotif = 0; // contador para notificar
   bool lastValve = !valve; // ultimo valor de la valvula
 
-  Serial.printf("-- Inicia tarea notificacion valvula...\n" );
   for (;;) {
     vTaskDelayUntil(&xLastWakeTime, period);
     bool v;
@@ -188,12 +190,12 @@ void temperatureValveNotif( void *pvParams ) {
     xSemaphoreGive(xMutexTemperature);
 
     if (v != lastValve) { // Si cambio el estado de la valvula se imprime
-        Serial.printf( "-- Temperatura: %d °C \t --> Valvula Gas %s\n",t, v ? "ABIERTA" : "CERRADA" );
+        Serial.printf( "[Sensor] Temperatura caldera: %d °C --> [Actuador] Valvula Gas %s\n",t, v ? "ABIERTA" : "CERRADA" );
         lastValve = v;
     }
     else if (++counterNotif >= NOTIF_SECONDS) { // Evaluación y Notificación cada 5 segundos
       counterNotif = 0;
-      Serial.printf("-- Temperatura: %d °C\n", t);
+      Serial.printf("[Sensor] Temperatura caldera: %d °C\n", t);
     }
   }
 }

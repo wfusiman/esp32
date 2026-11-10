@@ -17,16 +17,16 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
-#define SERIAL_BAUD                  115200
+#define SERIAL_BAUD           115200
 
 #define TEMP_MAX              98     // Temperatura maxima 
 #define TEMP_MIN              70     // Temperatura minima 
 #define TIME_ON_OFF           10     // minimo encendida y minimo apagada
 
-#define PERIOD_SECURITY_MS   500      // periodo medio segundo
-#define PERIOD_READ_MS       1000     // periodo lector temperatura 1 segundo
-#define PERIOD_CONTROL_MS    1000     // periodo control normal de temperatura 1 segundo
-#define PERIOD_NOTIF_MS      1000     // periodo notificacion 1 segundo
+#define PERIOD_SECURITY_MS   500      // periodo tarea control de seguridad, 1/2 segundo
+#define PERIOD_READ_MS       1000     // periodo tarea lector temperatura 1 segundo
+#define PERIOD_CONTROL_MS    1000     // periodo tarea control normal de temperatura 1 segundo
+#define PERIOD_NOTIF_MS      1000     // periodo tarea notificacion 1 segundo
  
 // Simulacion y notificacion de la caldera 
 #define HEAT_SECONDS         10 // +1° C cada 10 segundos
@@ -40,10 +40,9 @@
 
 #define TASK_STACK_SIZE      4096 // tamaño de pila de las tareas
 #define CORE                 1    // Un core
-
+#define LED_PIN              2  // Pin led de la placa
 
 /* -- variables globales */
-
 extern int temperature;   // Valor de temperatura actual
 extern bool valve;        // valvula => abierta=true, cerrada=false
 extern int counter;       // contador de segundos 
@@ -56,7 +55,7 @@ void temperatureControlSecurity( void * pvParams );
 void temperatureControlNormal( void *pvParams );
 void temperatureValveNotif( void *pvParams );
 
-void init( void );
+void initSystem();
 
 #endif
 
