@@ -19,9 +19,9 @@
 
 #define SERIAL_BAUD           115200
 
-#define TEMP_MAX              98     // Temperatura maxima 
-#define TEMP_MIN              70     // Temperatura minima 
-#define TIME_ON_OFF           10     // minimo encendida y minimo apagada
+#define TEMP_MAX              98     // Temperatura maxima de la caldera
+#define TEMP_MIN              70     // Temperatura minima de la caldera
+#define TIME_ON_OFF           10     // minimo encendida y minimo apagada en segundos
 
 #define PERIOD_SECURITY_MS   500      // periodo tarea control de seguridad, 1/2 segundo
 #define PERIOD_READ_MS       1000     // periodo tarea lector temperatura 1 segundo
@@ -33,14 +33,14 @@
 #define COOL_SECONDS         20 // -1° C cada 20 segundos
 #define NOTIF_SECONDS        5  // evaluacion/notificacion cada 5 s
 
-#define PRIORITY_SECURITY    4
-#define PRIORITY_READ        3
-#define PRIORITY_CONTROL     2
-#define PRIORITY_NOTIF       1
+#define PRIORITY_SECURITY    4  // prioridad tarea control de seguridad
+#define PRIORITY_READ        3  // prioridad tarea lectura de temperatura
+#define PRIORITY_CONTROL     2  // prioridad tarea control normal.
+#define PRIORITY_NOTIF       1  // priorirdad tarea notificacion valores
 
 #define TASK_STACK_SIZE      4096 // tamaño de pila de las tareas
 #define CORE                 1    // Un core
-#define LED_PIN              2  // Pin led de la placa
+#define LED_PIN              2    // Pin led de la placa
 
 /* -- variables globales */
 extern int temperature;   // Valor de temperatura actual

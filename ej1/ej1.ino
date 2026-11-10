@@ -12,6 +12,9 @@ bool valve = false;   // valvula abierta=true, cerrada=false
 int counter = 0;  // contador on/off de la valvula
 SemaphoreHandle_t xMutexTemperature;
 
+/*
+* Abre/cierra valvula, enciende/apaga led.
+*/
 static void setValve( bool on_off ) {
   valve = on_off;
   digitalWrite( LED_PIN, on_off ? HIGH:LOW );
@@ -29,7 +32,7 @@ void setup() {
   Serial.println("\t|---------------------------------------------------------------");
 
   // Creacion de tareas 
-  xTaskCreatePinnedToCore( temperatureControlSecurity, "Control de limite de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_SECURITY, NULL, CORE );
+  xTaskCreatePinnedToCore( temperatureControlSecurity, "Control de seguridad limite de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_SECURITY, NULL, CORE );
   xTaskCreatePinnedToCore( temperatureReader, "Lectura de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_READ, NULL, CORE );
   xTaskCreatePinnedToCore( temperatureControlNormal, "Control normal de temperatura", TASK_STACK_SIZE, NULL, PRIORITY_CONTROL, NULL, CORE );
   xTaskCreatePinnedToCore( temperatureValveNotif, "Notificacion temperatura valvula", TASK_STACK_SIZE, NULL, PRIORITY_NOTIF, NULL, CORE );
@@ -58,7 +61,7 @@ void initSystem() {
 
   // Inicializa temperatura aleatoria y valvula cerrada
   randomSeed( esp_random() );
-  temperature = random( 50,121 );
+  temperature = random( 50,121 ); // temperatura inicial entre 50 y 120
   counter = 0; 
   // Iniicializa mutex
   xMutexTemperature = xSemaphoreCreateMutex();
@@ -66,7 +69,7 @@ void initSystem() {
 
 /*
 * Lectura de temperatura
-* Prioridad media, peridicidad 1 segundo
+* Prioridad = 2, peridicidad 1 segundo
 */
 void temperatureReader( void *pvParams ) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -131,20 +134,22 @@ void temperatureControlNormal( void *pvParams ) {
     vTaskDelayUntil( &xLastWakeTime, period );
 
     xSemaphoreTake( xMutexTemperature, portMAX_DELAY );
-    if (temperature > TEMP_MAX) {
+    if (temperature > TEMP_MAX) { // Si la temperatura pasa el maximo, se cierra la valvula.
       setValve( false );
       counter = 0;
     }
-    else if (valve){
-      if (++counter >= TIME_ON_OFF) {
+    else if (valve){ // si la valvula esta abierta.
+      if (counter < TIME_ON_OFF) // si no completo el tiempo de valvula abierta, incrementa.
+        counter++;
+      if (counter >= TIME_ON_OFF) { // si completo el tiempo de valvula abierta, se cierra valvula.
         setValve( false );
         counter = 0;
       }
     }
-    else {
-      if (counter < TIME_ON_OFF)
+    else { // valvula cerrada
+      if (counter < TIME_ON_OFF) // si no completo el tiempo de valvula cerrada, incrementa.
         counter++;
-      if (counter >= TIME_ON_OFF && temperature < TEMP_MAX) {
+      if (counter >= TIME_ON_OFF && temperature < TEMP_MAX) { // si se completo el tiempo de cerrado y la temperatura no esta al limite, se abre valvula
         setValve( true );
         counter = 0;
       }

@@ -39,7 +39,7 @@
 #define IRRIG_PERIOD      30  // riego encienda cada 30 segundos.
 #define IRRIG_ON          10  // riego permanece encendido 10 segundos.
 
-#define TICKS_PER_SEC     (1000 / PERIOD_CONTROL_SEC_MS)   // 2 ticks por segundo
+#define TICKS_PER_SEC     (1000 / PERIOD_CONTROL_SEC_MS)   // 1 ticks por segundo
 #define NO_FLOW_TICKS     (5  * TICKS_PER_SEC)             // 5 s sin caudal
 #define ALARM_FLOW_TICKS  (15 * TICKS_PER_SEC)             // alarma 15 s
 #define ALARM_RPM_TICKS   (30 * TICKS_PER_SEC)             // alarma 30 s
