@@ -147,9 +147,10 @@ void temperatureControlNormal( void *pvParams ) {
       }
     }
     else { // valvula cerrada
-      if (counter < TIME_ON_OFF) // si no completo el tiempo de valvula cerrada, incrementa.
+      if (counter < TIME_ON_OFF) {// si no completo el tiempo de valvula cerrada, incrementa.
         counter++;
-      if (counter >= TIME_ON_OFF && temperature < TEMP_MAX) { // si se completo el tiempo de cerrado y la temperatura no esta al limite, se abre valvula
+      }
+      else if (temperature < TEMP_MAX) { // si se completo el tiempo de cerrado y la temperatura no esta al limite, se abre valvula
         setValve( true );
         counter = 0;
       }
