@@ -13,7 +13,7 @@ bool pump;          // Bomba de agua,  encendida = true, apagada = false
 bool alarmp;        // Alarma. encendida = true, apagada = false 
 String errMessage;  // Mensaje de error a notificar 
 
-SemaphoreHandle_t xMutexSensors; // mutex para lectuta escritura de sensores.
+SemaphoreHandle_t xMutexSensors; // mutex para lectuta escritura de sensores: humedad, caudal, rpm, bomba y alarma.
 
 static void setPump( bool on_off ) {
   pump = on_off;
@@ -112,17 +112,16 @@ void securityControlPump(void *pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t period = pdMS_TO_TICKS( PERIOD_CONTROL_SEC_MS );
 
-  static int counterNoCaudal = 0;
-  static int counterAlarmCaudal = 0;
-  static int counterRPM = 0;
-  static int counterAlarmRPM = 0;
-  static bool modeAlarmCaudal = false;
-  static bool modeAlarmRPM = false;
+  static int counterNoCaudal = 0; // contador cuando no hay caudal, hasta 5 segundos.
+  static int counterAlarmCaudal = 0; // contador alarma sin caudal, hasta 15 segundos
+  static int counterRPM = 0; // contador bajas revolucinoes, hasta 1 segundo.
+  static int counterAlarmRPM = 0; // contador alarma por bajas revolucione, 30 segundos.
+  static bool modeAlarmCaudal = false; // cuando se encuentra en modo alarma por bajo caudal.
+  static bool modeAlarmRPM = false;   // cuando se encuentra en modo alarma por bajas revolucionnes.
 
   for (;;) {
 
     if (xSemaphoreTake(xMutexSensors, pdMS_TO_TICKS(10)) == pdTRUE) {
-
       if (alarmp) { // control de alarma y duracion
         if (modeAlarmCaudal) {
           counterAlarmCaudal++;
@@ -132,7 +131,7 @@ void securityControlPump(void *pvParameters) {
             counterAlarmCaudal = 0;
           }
         } else if (modeAlarmRPM) {
-        counterAlarmRPM++;
+          counterAlarmRPM++;
           if (counterAlarmRPM >= ALARM_RPM_TICKS) { // 30 segundos 
             alarmp = false;
             modeAlarmRPM = false;
@@ -158,7 +157,7 @@ void securityControlPump(void *pvParameters) {
 
         // Chequeo revoluciones del motor
         counterRPM++;
-        if (counterRPM == RPM_CHECK_TICKS + 1) { // Después de 1 segundo 
+        if (counterRPM == RPM_CHECK_TICKS) { // Después de 1 segundo 
           if (rpm < RPM_MIN) { 
             setPump( false );
             alarmp = true;

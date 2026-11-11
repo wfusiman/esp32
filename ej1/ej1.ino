@@ -9,8 +9,8 @@
 
 int temperature = 0;  // Valor de temperatura actual
 bool valve = false;   // valvula abierta=true, cerrada=false
-int counter = 0;  // contador on/off de la valvula
-SemaphoreHandle_t xMutexTemperature;
+int counter = 0;  // contador de tiempo on/off de la valvula
+SemaphoreHandle_t xMutexTemperature; // mutex para proteger lectura/escritura de temperatura y seteo de valvula
 
 /*
 * Abre/cierra valvula, enciende/apaga led.
@@ -62,7 +62,7 @@ void initSystem() {
   // Inicializa temperatura aleatoria y valvula cerrada
   randomSeed( esp_random() );
   temperature = random( 50,121 ); // temperatura inicial entre 50 y 120
-  counter = 0; 
+  counter = 0; // contador reseteado
   // Iniicializa mutex
   xMutexTemperature = xSemaphoreCreateMutex();
 }
@@ -111,15 +111,14 @@ void temperatureControlSecurity( void *pvParams ) {
   const TickType_t period = pdMS_TO_TICKS( PERIOD_SECURITY_MS );
 
   for (;;) {
-    vTaskDelayUntil( &xLastWakeTime, period );
-
     xSemaphoreTake( xMutexTemperature, portMAX_DELAY);      
     // Controla si el valor supera la temperatura maxima 98°C.
     if (temperature > TEMP_MAX) {
       setValve( false );
-      counter =0;
+      counter = 0;
     }
     xSemaphoreGive( xMutexTemperature );
+    vTaskDelayUntil( &xLastWakeTime, period );
   }
 }
 
@@ -131,14 +130,8 @@ void temperatureControlNormal( void *pvParams ) {
   const TickType_t period = pdMS_TO_TICKS( PERIOD_CONTROL_MS );
   
   for (;;) {
-    vTaskDelayUntil( &xLastWakeTime, period );
-
     xSemaphoreTake( xMutexTemperature, portMAX_DELAY );
-    if (temperature > TEMP_MAX) { // Si la temperatura pasa el maximo, se cierra la valvula.
-      setValve( false );
-      counter = 0;
-    }
-    else if (valve){ // si la valvula esta abierta.
+    if (valve){ // si la valvula esta abierta.
       if (counter < TIME_ON_OFF) // si no completo el tiempo de valvula abierta, incrementa.
         counter++;
       if (counter >= TIME_ON_OFF) { // si completo el tiempo de valvula abierta, se cierra valvula.
@@ -156,6 +149,7 @@ void temperatureControlNormal( void *pvParams ) {
       }
     }
     xSemaphoreGive( xMutexTemperature );
+    vTaskDelayUntil( &xLastWakeTime, period );
   }
 }
 

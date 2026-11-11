@@ -12,7 +12,7 @@ volatile bool valve; // Caldera encedida = true, caldera apgada = false
 int poolTemp;        // temperatura pileta.
 int boilerTemp;      // Temperatura caldera. 
 
-SemaphoreHandle_t xMutexTemp; // mutex para lectura escritura de temperaturas
+SemaphoreHandle_t xMutexTemp; // mutex para lectura escritura de temperaturas de pileta y caldera
 
 /*
 * Bomba de circulacion, prende o apaga bomba y enciende o apaga led de la placa.
