@@ -44,6 +44,24 @@ void loop() {
   vTaskDelete( NULL );
 }
 
+void initSystem() {
+  Serial.begin( SERIAL_BAUD );
+  Serial.setTimeout(50); 
+  while( Serial.available() > 0) 
+    Serial.read();
+  
+  pinMode( PIN_LED_PUMP, OUTPUT );
+  setPump( false );     // bomba apagada
+  valve = false;    // caldera apagada
+  // Inicialización valores aleatorio para temperaturas
+  randomSeed(analogRead(0));
+  poolTemp = random(20, 30); // Pileta: entre 20°C y 29°C;   
+  boilerTemp = random(35, 59); // Caldera: entre 35°C y 58°C;
+
+  // Creacion de  mutex
+  xMutexTemp = xSemaphoreCreateMutex();
+}
+
 /*
 * Lectura de temperatura de pileta o temperatura caldera, por entrada serial.
 */
@@ -177,22 +195,4 @@ void runNotif(void *pvParameters) {
   }
 }
 
-
-void initSystem() {
-  Serial.begin( SERIAL_BAUD );
-  Serial.setTimeout(50); 
-  while( Serial.available() > 0) 
-    Serial.read();
-  
-  pinMode( PIN_LED_PUMP, OUTPUT );
-  setPump( false );     // bomba apagada
-  valve = false;    // caldera apagada
-  // Inicialización valores aleatorio para temperaturas
-  randomSeed(analogRead(0));
-  poolTemp = random(20, 30); // Pileta: entre 20°C y 29°C;   
-  boilerTemp = random(35, 59); // Caldera: entre 35°C y 58°C;
-
-  // Creacion de  mutex
-  xMutexTemp = xSemaphoreCreateMutex();
-}
 
