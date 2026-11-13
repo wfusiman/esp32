@@ -71,15 +71,16 @@ Sensores y actuadores:
 - Actuador alarma: sirena que se emite para indicar falla del motor.
 
 Lógica de control:
-    - Tomar el valor de humedad del suelo.
-    - Si la humedad > 90%, apagar la bomba.
-    - Si la humedad < 30% y ya pasaron 30 segundos de descanso de la bomba, encender la bomba por 10 segundos.
-    - Verificar el caudal mientras la bomba de agua se encuentra encendida.
-    - Si la bomba de agua se encuentra encendida y no hay caudal durante 5 segundos seguidos, detener la bomba y emitir alarma durante 15 segundos.
-    - Verificar las revoluciones de la bomba de agua mientras se encuentra encendida.
-    - Si las rpm < 600, apagar la bomba de agua y emitir alarma durante 30 segundos.
+- Tomar el valor de humedad del suelo.
+- Si la humedad > 90%, apagar la bomba.
+- Si la humedad < 30% y ya pasaron 30 segundos de descanso de la bomba, encender la bomba por 10 segundos.
+- Verificar el caudal mientras la bomba de agua se encuentra encendida.
+- Si la bomba de agua se encuentra encendida y no hay caudal durante 5 segundos seguidos, detener la bomba y emitir alarma durante 15 segundos.
+- Verificar las revoluciones de la bomba de agua mientras se encuentra encendida.
+- Si las rpm < 600, apagar la bomba de agua y emitir alarma durante 30 segundos.
 
-    <img width="750" height="631" alt="image" src="https://github.com/user-attachments/assets/4ada0082-4d45-4353-82c6-ffcec1342600" />
+<img width="750" height="631" alt="image" src="https://github.com/user-attachments/assets/ec2d32a4-71e7-42c0-b081-7563aebab46b" />
+
 
 Tareas implementadas:
 |Tarea	| Descripción |	Prioridad |	Periodicidad |
@@ -108,4 +109,58 @@ Simulacion:
 | C:0 con bomba encendida |	Después de 5 segundos muestra ERROR: Bomba detenida por falta de caudal, enciende alarma 15 segundos, apaga led |
 | B:300 con bomba encendida |	Muestra ERROR: Bomba sin rotación, enciende alarma 30 segundos, apaga led |
 
+
+## 3. Control de temperatura de pileta
+
+Control de temperatura de una pileta mediante una caldera y una bomba de circulación.
+• La caldera y la bomba deben apagarse y prenderse mediante una salida digital conectada a la válvula de gas y un relé contactor para el motor eléctrico de la bomba.
+• La temperatura de la pileta debe estar entre 26 y 30°C.
+• Verificar la temperatura de la pileta cada 6 segundos.
+• Verificar la temperatura de la caldera cada 15 segundos.
+• La temperatura de la caldera debe estar entre 45 y 60°C. Debe permanecer encendida en ese rango mientras el sistema se encuentre encendido.
+• La bomba de circulación debe prender a los 55°C y apagar por debajo de los 45°C.
+• La bomba debe funcionar al menos 3 minutos (30 segundos) para recircular el agua.
+• La bomba se debe apagar si la caldera no se encuentra en el rango, o luego de alcanzar 30°C después de 30 segundos.
+
+<img width="1027" height="344" alt="image" src="https://github.com/user-attachments/assets/90c023b4-6b11-4a18-8c46-a752b3cf8f12" />
+
+Sensores y actuadores:
+- Sensor de temperatura de pileta: toma la temperatura del agua de la pileta.
+- Sensor de temperatura de caldera: toma la temperatura del agua de la caldera.
+- Actuador valvula solenoide de gas: abre / cierra el paso del gas.
+- Actuador contactor: enciende / apaga la bomba de circulacion de agua.
+
+Logica de control:
+- Tomar la temperatura de la pileta.
+- Si la temperatura es < 26°C, se necesita agua caliente.
+- Si la temperatura es >= 30°C, esperar 30 segundos y apagar la bomba.
+- Tomar la temperatura de la caldera.
+- Si la temperatura < 45°C, habilitar calentamiento.
+- Si la temperatura >= 60°C, deshabilitar calentamiento.
+- Si la bomba está prendida, mantener la temperatura en el rango >= 45°C y < 60°C.
+- Si la temperatura de la pileta < 26°C, la temperatura de la caldera >= 55°C y =< 60°C y la bomba está apagada, prender la bomba por 30 segundos.
+- Si la temperatura de la caldera < 45°C y la bomba está prendida, apagar la bomba.
+- Si la temperatura de la pileta >= 30°C, la bomba está prendida y estuvo prendida por 30 segundos, apagar la bomba.
+- Si la temperatura de la caldera < 45°C o > 60°C y la bomba está prendida, apagar la bomba.
+
+<img width="755" height="652" alt="image" src="https://github.com/user-attachments/assets/803ab7d9-a980-45e4-a581-6eaea4866b06" />
+
+Tareas implementadas:
+| Tarea	| Descripción	| Prioridad	| Periodicidad |
+|-------|-------------|-----------|--------------|
+|Lecturas de temperaturas de y caldera |	Realiza la lectura de la temperatura de la pileta y temperatura de caldera.	| Alta (3)	| 2 seg | 
+|Control de caldera	| Abre o cierra la caldera según la temperatura de la caldera. |	Baja (1)	| 15 seg |
+|Control de bomba de circulación	| Prende o apaga la bomba según la temperatura de la pileta y el tiempo de funcionamiento. |	Máxima (4)	| 1 seg |
+|Notificaciones |	Muestra los valores de sensores y cambios de estado	| Normal (2) |	2 seg |
+
+Simulacion:
+| Prueba |	Resultado |
+|--------|------------|
+|P:27	| Temperatura pileta actualizada : 27°C|
+|C:52	| Temperatura de caldera actualizada: 52°C |
+|C:40	| Activa válvula de caldera en el siguiente chequeo |
+|C:60 |	Cierra válvula de caldera en el siguiente chequeo |
+|P: 25 , C:58  (rango de activación de circulación)	 | Enciende la bomba, prende led |
+|C:40 o C:60 (caldera fuera de rango) |	Apaga bomba  y apaga led |
+|P:30 (apagado por tiempo) |	Enciende bomba y se apaga a los 30 segundos |
 
