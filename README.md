@@ -8,7 +8,7 @@ La temperatura del agua en la caldera debe esta entre 70°C y 98°C.
 Si supera los 98°C, la válvula eléctrica de gas debe cerrarse inmediatamente. 
 La caldera debe estar prendida mas de 10 segundos, y descansar el mismo tiempo para volver a encenderse.
 
-<img width="632" height="413" alt="Captura desde 2026-11-04 12-29-36" src="https://github.com/user-attachments/assets/da5a2fee-ea2e-4a04-9130-d6d2d0b14bc6" />
+<img width="369" height="327" alt="image" src="https://github.com/user-attachments/assets/2371837c-c67e-40f4-af58-685cf7a5337d" />
 
 
 Sensores y actuadores:
@@ -16,30 +16,38 @@ Sensores y actuadores:
 - Válvula de gas solenoide:  abre / cierra paso de gas.
 
 Lógica de control:
-- leer temperatura.
-- Si la temperatura > 98°C, cerrar paso de gas, resetear contador segundos.
-- Si la temperatura < 70°C y caldera apagada, abrir paso de gas (prender caldera), iniciar contador segundos.
-- Si caldera prendida y contador = 10 segundos, cerrar paso de gas (apagar caldera), iniciar contador segundos.
-- Si caldera apagada y contador = 10 segundos, abrir paso de gas (prender caldera), iniciar contador segundos.
+- Leer temperatura.
+- Si la temperatura > 98°C, cerrar la válvula de gas (apagar caldera).
+- Si la temperatura <= 98°C, la caldera está apagada y ya descansó al menos 10 segundos, abrir la válvula de gas (prender caldera) e iniciar el contador de encendido.
+- Si la caldera está prendida y el contador de encendido >= 10 segundos, cerrar la válvula de gas (apagar caldera).
+- Si la caldera está apagada y el contador de apagado >= 10 segundos, abrir la válvula de gas (prender caldera).
 
-Diagrama de decisión de la lógica de control (tarea de control normal, cada 1 s):
 
-<img width="1386" height="1158" alt="image" src="https://github.com/user-attachments/assets/b0a65549-2c92-4ced-be2c-31a6f45df91f" />
+<img width="538" height="713" alt="image" src="https://github.com/user-attachments/assets/834df258-f3a9-419f-aaac-f68caccb6426" />
 
+Tareas imlementadas:
+|Tarea| descripcion | prioridad | periodo |
+|-----|-------------|-----------|---------|
+|Lectura de temperatura |	Toma la temperatura del agua |	Alta (3) |	1 seg |
+|Control de temperatura máxima |	Monitorea  la temperatura del agua de la caldera y cierra la válvula de gas inmediatamente si supera los 98°C.	| Máxima (4) | 1 seg |
+|Control de temperatura normal |	Monitorea  la temperatura del agua de la caldera, entre 70°C y 98°C, y los tiempos de encendido y apagado (10 segundos). | Media (2) |	1 seg |
+|Simulación y notificación	| Simula el calentamiento (1°C cada 10 segundos) y el enfriamiento (1°C cada 20 segundos) del agua. Informa cada 5 segundos y notifica si cambia el valor de la válvula de gas. | Baja (1) |	1 seg |
+
+Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
+El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
 
 Simulación: implementación en placa ESP32 con FreeRTOS.
 - Leer temperatura desde el puerto serie, valores en formato T:XX (ej, T:75 indica 75°C), cada 1 segundo.
 - Evaluar cada 5 segundos y notificar por consola el estado de la válvula, imprimiendo “Válvula Gas ABIERTA” y “Válvula Gas CERRADA” solo cuando cambia estado.
 - Temperatura inicial aleatoria entre 50°C y 120°C, (tasa de enfriamiento 1° casa 20 segundos) (tasa de calentamiento 1° casa 10 segundos).
+  
+| Prueba	| Resultado|
+|---------|----------|
+|T:50 | con válvula cerrada	Abre válvula (inicia ciclo 10 segundos), prende led |
+|T:99 | con válvula abierta	Cierra válvula inmediatamente, apaga led |
+|T:60 | inmediatamente después de cerrar válvula	Abre válvula después de 10 segundos de descanso, prende led cuando abre valvula |  
+  
 
-Tareas implementadas:
-- tarea lectura de temperatura (temperatureReader): toma la temperatura del agua cada 1 segundo leyendo el puerto serie (formato T:XX), sin bloquear, y actualiza el valor actual de temperature. (prioridad media = 3  / periodicidad 1000 ms).
-- tarea control temperatura máxima (temperatureControlSecurity): monitorea cada medio segundo si la temperatura supera 98°C; en ese caso cierra el paso de gas y resetea el contador de segundos (prioridad máxima = 4 / periodicidad 500 ms).
-- tarea control temperatura normal (temperatureControlNormal): cada 1 segundo controla la temperatura y los tiempos de encendido y apagado: 10 segundos encendida y 10 segundos de descanso antes de volver a encender (prioridad normal = 2 / periodicidad 1000 ms).
-- tarea notificación y simulación (temperatureValveNotif): cada 1 segundo simula el calentamiento (1° cada 10 segundos) y enfriamiento (1° cada 20 segundos) del agua y cada 5 segundos informa por consola (prioridad baja 1 / periodicidad 1000 ms).
-
-Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
-El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
 
 --- 
 
@@ -52,14 +60,35 @@ Verificar si existe caudal para evitar que el motor trabaje en vacio, sensando c
 Si no hay caudal durante 5 segundos, detener la bomba y activar alarma por 15 segundos.
 Verificar que la bomba gire al menos a 600 rpm despues de 1 segundo, sino funciona accionar alarma durante 30 segundos.
 
-<img width="950" height="241" alt="Captura desde 2026-11-04 12-32-37" src="https://github.com/user-attachments/assets/773213e2-7dce-42b0-895d-3992c618fc82" />
+<img width="814" height="306" alt="image" src="https://github.com/user-attachments/assets/fa2ec877-8e46-445f-8df1-da3f80f948d7" />
+
 
 Sensores y actuadores:
 - Sensor de humedad: toma valores de humedad del suelo.
-- Sensor de caudal (caudalimetro): toma para medir el caudal de agua que sale de la bomba hacia el suelo.
-- Tacometro: mide las revoluciones del motor de la bomba de agua.
-- Motor bomba de agua: enciende y apaga para realizar el riego.
-- Alarma: sirena que se emite para indicar falla del motor.
+- Sensor de caudal (caudalimetro): Mide la cantidad de agua que sale de la bomba hacia el canal de riego del suelo.
+- Sensor de revoluciones (Tacometro): mide las revoluciones del motor de la bomba de agua.
+- Actuador contactor: enciende y apaga la bomba de agua para impulsar/cortar el agua para el riego.
+- Actuador alarma: sirena que se emite para indicar falla del motor.
+
+Lógica de control:
+- Tomar el valor de humedad del suelo.
+- Si la humedad > 90%, apagar la bomba.
+- Si la humedad < 30% y ya pasaron 30 segundos de descanso de la bomba, encender la bomba por 10 segundos.
+- Verificar el caudal mientras la bomba de agua se encuentra encendida.
+- Si la bomba de agua se encuentra encendida y no hay caudal durante 5 segundos seguidos, detener la bomba y emitir alarma durante 15 segundos.
+- Verificar las revoluciones de la bomba de agua mientras se encuentra encendida.
+- Si las rpm < 600, apagar la bomba de agua y emitir alarma durante 30 segundos.
+
+<img width="750" height="631" alt="image" src="https://github.com/user-attachments/assets/ec2d32a4-71e7-42c0-b081-7563aebab46b" />
+
+
+Tareas implementadas:
+|Tarea	| Descripción |	Prioridad |	Periodicidad |
+|-------|-------------|-----------|--------------|
+|Lectura de sensores | Lee los valores de humedad del suelo, caudal de agua y rpm de la bomba de agua. |	Media (2) |	1 seg |
+|Control de seguridad de la bomba |	Controla que haya caudal y que las rpm del motor sean superiores a 600; si no se cumple, apaga el motor y emite alarma.| Máxima (4) |	1 seg |
+|Control de riego |	Controla el riego según los límites de humedad, prendiendo y apagando la bomba de agua en los tiempos establecidos. |	alta (3) |	1 seg |
+|Notificaciones | Notifica por salida serial los valores de los sensores y los mensajes de error de la bomba. |	Normal (1) |	1 seg |
 
 Simular el sistema en la placa ESP32, mediante FreeRTOS y usando el puerto Serie:
 - Humedad por debajo del 30% se debe prender la bomba por arriba del 90% el sistema no riega
@@ -72,5 +101,66 @@ hay caudal, imprimir "ERROR: Bomba detenida por falta de caudal" o ERROR: Bomba 
 rotación.
 - La velocidad de motor se ingresa a través una entrada serial B:velocidad rpm.
 
+Simulacion:
+| Prueba |	Resultado |
+|--------|------------|
+| H:20 |	Muestra Bomba: ENCENDIDA prende led  |
+| H:95 con bomba encendida |	Muestra Bomba: APAGADA, apaga led |
+| C:0 con bomba encendida |	Después de 5 segundos muestra ERROR: Bomba detenida por falta de caudal, enciende alarma 15 segundos, apaga led |
+| B:300 con bomba encendida |	Muestra ERROR: Bomba sin rotación, enciende alarma 30 segundos, apaga led |
 
+
+## 3. Control de temperatura de pileta
+
+Control de temperatura de una pileta mediante una caldera y una bomba de circulación.
+• La caldera y la bomba deben apagarse y prenderse mediante una salida digital conectada a la válvula de gas y un relé contactor para el motor eléctrico de la bomba.
+• La temperatura de la pileta debe estar entre 26 y 30°C.
+• Verificar la temperatura de la pileta cada 6 segundos.
+• Verificar la temperatura de la caldera cada 15 segundos.
+• La temperatura de la caldera debe estar entre 45 y 60°C. Debe permanecer encendida en ese rango mientras el sistema se encuentre encendido.
+• La bomba de circulación debe prender a los 55°C y apagar por debajo de los 45°C.
+• La bomba debe funcionar al menos 3 minutos (30 segundos) para recircular el agua.
+• La bomba se debe apagar si la caldera no se encuentra en el rango, o luego de alcanzar 30°C después de 30 segundos.
+
+<img width="1027" height="344" alt="image" src="https://github.com/user-attachments/assets/90c023b4-6b11-4a18-8c46-a752b3cf8f12" />
+
+Sensores y actuadores:
+- Sensor de temperatura de pileta: toma la temperatura del agua de la pileta.
+- Sensor de temperatura de caldera: toma la temperatura del agua de la caldera.
+- Actuador valvula solenoide de gas: abre / cierra el paso del gas.
+- Actuador contactor: enciende / apaga la bomba de circulacion de agua.
+
+Logica de control:
+- Tomar la temperatura de la pileta.
+- Si la temperatura es < 26°C, se necesita agua caliente.
+- Si la temperatura es >= 30°C, esperar 30 segundos y apagar la bomba.
+- Tomar la temperatura de la caldera.
+- Si la temperatura < 45°C, habilitar calentamiento.
+- Si la temperatura >= 60°C, deshabilitar calentamiento.
+- Si la bomba está prendida, mantener la temperatura en el rango >= 45°C y < 60°C.
+- Si la temperatura de la pileta < 26°C, la temperatura de la caldera >= 55°C y =< 60°C y la bomba está apagada, prender la bomba por 30 segundos.
+- Si la temperatura de la caldera < 45°C y la bomba está prendida, apagar la bomba.
+- Si la temperatura de la pileta >= 30°C, la bomba está prendida y estuvo prendida por 30 segundos, apagar la bomba.
+- Si la temperatura de la caldera < 45°C o > 60°C y la bomba está prendida, apagar la bomba.
+
+<img width="755" height="652" alt="image" src="https://github.com/user-attachments/assets/803ab7d9-a980-45e4-a581-6eaea4866b06" />
+
+Tareas implementadas:
+| Tarea	| Descripción	| Prioridad	| Periodicidad |
+|-------|-------------|-----------|--------------|
+|Lecturas de temperaturas de y caldera |	Realiza la lectura de la temperatura de la pileta y temperatura de caldera.	| Alta (3)	| 2 seg | 
+|Control de caldera	| Abre o cierra la caldera según la temperatura de la caldera. |	Baja (1)	| 15 seg |
+|Control de bomba de circulación	| Prende o apaga la bomba según la temperatura de la pileta y el tiempo de funcionamiento. |	Máxima (4)	| 1 seg |
+|Notificaciones |	Muestra los valores de sensores y cambios de estado	| Normal (2) |	2 seg |
+
+Simulacion:
+| Prueba |	Resultado |
+|--------|------------|
+|P:27	| Temperatura pileta actualizada : 27°C|
+|C:52	| Temperatura de caldera actualizada: 52°C |
+|C:40	| Activa válvula de caldera en el siguiente chequeo |
+|C:60 |	Cierra válvula de caldera en el siguiente chequeo |
+|P: 25 , C:58  (rango de activación de circulación)	 | Enciende la bomba, prende led |
+|C:40 o C:60 (caldera fuera de rango) |	Apaga bomba  y apaga led |
+|P:30 (apagado por tiempo) |	Enciende bomba y se apaga a los 30 segundos |
 
