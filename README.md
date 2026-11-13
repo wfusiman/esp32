@@ -16,11 +16,11 @@ Sensores y actuadores:
 - Válvula de gas solenoide:  abre / cierra paso de gas.
 
 Lógica de control:
-    1. Leer temperatura.
-    2. Si la temperatura > 98°C, cerrar la válvula de gas (apagar caldera).
-    3. Si la temperatura <= 98°C, la caldera está apagada y ya descansó al menos 10 segundos, abrir la válvula de gas (prender caldera) e iniciar el contador de encendido.
-    4. Si la caldera está prendida y el contador de encendido >= 10 segundos, cerrar la válvula de gas (apagar caldera).
-    5. Si la caldera está apagada y el contador de apagado >= 10 segundos, abrir la válvula de gas (prender caldera).
+- Leer temperatura.
+- Si la temperatura > 98°C, cerrar la válvula de gas (apagar caldera).
+- Si la temperatura <= 98°C, la caldera está apagada y ya descansó al menos 10 segundos, abrir la válvula de gas (prender caldera) e iniciar el contador de encendido.
+- Si la caldera está prendida y el contador de encendido >= 10 segundos, cerrar la válvula de gas (apagar caldera).
+- Si la caldera está apagada y el contador de apagado >= 10 segundos, abrir la válvula de gas (prender caldera).
 
 
 <img width="538" height="713" alt="image" src="https://github.com/user-attachments/assets/834df258-f3a9-419f-aaac-f68caccb6426" />
@@ -60,14 +60,34 @@ Verificar si existe caudal para evitar que el motor trabaje en vacio, sensando c
 Si no hay caudal durante 5 segundos, detener la bomba y activar alarma por 15 segundos.
 Verificar que la bomba gire al menos a 600 rpm despues de 1 segundo, sino funciona accionar alarma durante 30 segundos.
 
-<img width="950" height="241" alt="Captura desde 2026-11-04 12-32-37" src="https://github.com/user-attachments/assets/773213e2-7dce-42b0-895d-3992c618fc82" />
+<img width="814" height="306" alt="image" src="https://github.com/user-attachments/assets/fa2ec877-8e46-445f-8df1-da3f80f948d7" />
+
 
 Sensores y actuadores:
 - Sensor de humedad: toma valores de humedad del suelo.
-- Sensor de caudal (caudalimetro): toma para medir el caudal de agua que sale de la bomba hacia el suelo.
-- Tacometro: mide las revoluciones del motor de la bomba de agua.
-- Motor bomba de agua: enciende y apaga para realizar el riego.
-- Alarma: sirena que se emite para indicar falla del motor.
+- Sensor de caudal (caudalimetro): Mide la cantidad de agua que sale de la bomba hacia el canal de riego del suelo.
+- Sensor de revoluciones (Tacometro): mide las revoluciones del motor de la bomba de agua.
+- Actuador contactor: enciende y apaga la bomba de agua para impulsar/cortar el agua para el riego.
+- Actuador alarma: sirena que se emite para indicar falla del motor.
+
+Lógica de control:
+    - Tomar el valor de humedad del suelo.
+    - Si la humedad > 90%, apagar la bomba.
+    - Si la humedad < 30% y ya pasaron 30 segundos de descanso de la bomba, encender la bomba por 10 segundos.
+    - Verificar el caudal mientras la bomba de agua se encuentra encendida.
+    - Si la bomba de agua se encuentra encendida y no hay caudal durante 5 segundos seguidos, detener la bomba y emitir alarma durante 15 segundos.
+    - Verificar las revoluciones de la bomba de agua mientras se encuentra encendida.
+    - Si las rpm < 600, apagar la bomba de agua y emitir alarma durante 30 segundos.
+
+    <img width="750" height="631" alt="image" src="https://github.com/user-attachments/assets/4ada0082-4d45-4353-82c6-ffcec1342600" />
+
+Tareas implementadas:
+|Tarea	| Descripción |	Prioridad |	Periodicidad |
+|-------|-------------|-----------|--------------|
+|Lectura de sensores | Lee los valores de humedad del suelo, caudal de agua y rpm de la bomba de agua. |	Media (2) |	1 seg |
+|Control de seguridad de la bomba |	Controla que haya caudal y que las rpm del motor sean superiores a 600; si no se cumple, apaga el motor y emite alarma.| Máxima (4) |	1 seg |
+|Control de riego |	Controla el riego según los límites de humedad, prendiendo y apagando la bomba de agua en los tiempos establecidos. |	alta (3) |	1 seg |
+|Notificaciones | Notifica por salida serial los valores de los sensores y los mensajes de error de la bomba. |	Normal (1) |	1 seg |
 
 Simular el sistema en la placa ESP32, mediante FreeRTOS y usando el puerto Serie:
 - Humedad por debajo del 30% se debe prender la bomba por arriba del 90% el sistema no riega
@@ -80,5 +100,12 @@ hay caudal, imprimir "ERROR: Bomba detenida por falta de caudal" o ERROR: Bomba 
 rotación.
 - La velocidad de motor se ingresa a través una entrada serial B:velocidad rpm.
 
+Simulacion:
+| Prueba |	Resultado |
+|--------|------------|
+| H:20 |	Muestra Bomba: ENCENDIDA prende led  |
+| H:95 con bomba encendida |	Muestra Bomba: APAGADA, apaga led |
+| C:0 con bomba encendida |	Después de 5 segundos muestra ERROR: Bomba detenida por falta de caudal, enciende alarma 15 segundos, apaga led |
+| B:300 con bomba encendida |	Muestra ERROR: Bomba sin rotación, enciende alarma 30 segundos, apaga led |
 
 
