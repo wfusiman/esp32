@@ -8,7 +8,7 @@ La temperatura del agua en la caldera debe esta entre 70°C y 98°C.
 Si supera los 98°C, la válvula eléctrica de gas debe cerrarse inmediatamente. 
 La caldera debe estar prendida mas de 10 segundos, y descansar el mismo tiempo para volver a encenderse.
 
-<img width="632" height="413" alt="Captura desde 2026-11-04 12-29-36" src="https://github.com/user-attachments/assets/da5a2fee-ea2e-4a04-9130-d6d2d0b14bc6" />
+<img width="369" height="327" alt="image" src="https://github.com/user-attachments/assets/2371837c-c67e-40f4-af58-685cf7a5337d" />
 
 
 Sensores y actuadores:
@@ -16,30 +16,38 @@ Sensores y actuadores:
 - Válvula de gas solenoide:  abre / cierra paso de gas.
 
 Lógica de control:
-- leer temperatura.
-- Si la temperatura > 98°C, cerrar paso de gas, resetear contador segundos.
-- Si la temperatura < 70°C y caldera apagada, abrir paso de gas (prender caldera), iniciar contador segundos.
-- Si caldera prendida y contador = 10 segundos, cerrar paso de gas (apagar caldera), iniciar contador segundos.
-- Si caldera apagada y contador = 10 segundos, abrir paso de gas (prender caldera), iniciar contador segundos.
+    1. Leer temperatura.
+    2. Si la temperatura > 98°C, cerrar la válvula de gas (apagar caldera).
+    3. Si la temperatura <= 98°C, la caldera está apagada y ya descansó al menos 10 segundos, abrir la válvula de gas (prender caldera) e iniciar el contador de encendido.
+    4. Si la caldera está prendida y el contador de encendido >= 10 segundos, cerrar la válvula de gas (apagar caldera).
+    5. Si la caldera está apagada y el contador de apagado >= 10 segundos, abrir la válvula de gas (prender caldera).
 
-Diagrama de decisión de la lógica de control (tarea de control normal, cada 1 s):
 
-<img width="1386" height="1158" alt="image" src="https://github.com/user-attachments/assets/b0a65549-2c92-4ced-be2c-31a6f45df91f" />
+<img width="538" height="713" alt="image" src="https://github.com/user-attachments/assets/834df258-f3a9-419f-aaac-f68caccb6426" />
 
+Tareas imlementadas:
+|Tarea| descripcion | prioridad | periodo |
+|-----|-------------|-----------|---------|
+|Lectura de temperatura |	Toma la temperatura del agua |	Alta (3) |	1 seg |
+|Control de temperatura máxima |	Monitorea  la temperatura del agua de la caldera y cierra la válvula de gas inmediatamente si supera los 98°C.	| Máxima (4) | 1 seg |
+|Control de temperatura normal |	Monitorea  la temperatura del agua de la caldera, entre 70°C y 98°C, y los tiempos de encendido y apagado (10 segundos). | Media (2) |	1 seg |
+|Simulación y notificación	| Simula el calentamiento (1°C cada 10 segundos) y el enfriamiento (1°C cada 20 segundos) del agua. Informa cada 5 segundos y notifica si cambia el valor de la válvula de gas. | Baja (1) |	1 seg |
+
+Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
+El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
 
 Simulación: implementación en placa ESP32 con FreeRTOS.
 - Leer temperatura desde el puerto serie, valores en formato T:XX (ej, T:75 indica 75°C), cada 1 segundo.
 - Evaluar cada 5 segundos y notificar por consola el estado de la válvula, imprimiendo “Válvula Gas ABIERTA” y “Válvula Gas CERRADA” solo cuando cambia estado.
 - Temperatura inicial aleatoria entre 50°C y 120°C, (tasa de enfriamiento 1° casa 20 segundos) (tasa de calentamiento 1° casa 10 segundos).
+  
+| Prueba	| Resultado|
+|---------|----------|
+|T:50 | con válvula cerrada	Abre válvula (inicia ciclo 10 segundos), prende led |
+|T:99 | con válvula abierta	Cierra válvula inmediatamente, apaga led |
+|T:60 | inmediatamente después de cerrar válvula	Abre válvula después de 10 segundos de descanso, prende led cuando abre valvula |  
+  
 
-Tareas implementadas:
-- tarea lectura de temperatura (temperatureReader): toma la temperatura del agua cada 1 segundo leyendo el puerto serie (formato T:XX), sin bloquear, y actualiza el valor actual de temperature. (prioridad media = 3  / periodicidad 1000 ms).
-- tarea control temperatura máxima (temperatureControlSecurity): monitorea cada medio segundo si la temperatura supera 98°C; en ese caso cierra el paso de gas y resetea el contador de segundos (prioridad máxima = 4 / periodicidad 500 ms).
-- tarea control temperatura normal (temperatureControlNormal): cada 1 segundo controla la temperatura y los tiempos de encendido y apagado: 10 segundos encendida y 10 segundos de descanso antes de volver a encender (prioridad normal = 2 / periodicidad 1000 ms).
-- tarea notificación y simulación (temperatureValveNotif): cada 1 segundo simula el calentamiento (1° cada 10 segundos) y enfriamiento (1° cada 20 segundos) del agua y cada 5 segundos informa por consola (prioridad baja 1 / periodicidad 1000 ms).
-
-Las prioridades siguen el criterio Rate Monotonic (menor período, mayor prioridad). Las cuatro tareas corren en un unico procesador.
-El actuador válvula es un recurso compartido, que escriben la tarea de seguridad y la de control normal. Las variables temperature, valve y counter se protegen con un mutex (xMutexTemperature), que hereda prioridad y evita inversiones de prioridad. Todas las tareas que acceden a la temperatura toman el valor actualizado.
 
 --- 
 
